@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE OCA API Tester</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .output { border: 1px solid #ccc; padding: 10px; margin: 10px 0; height: 300px; overflow-y: auto; background: #f9f9f9; }
+        .config { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        input[type="text"] { width: 100%; padding: 5px; margin: 5px 0; }
+        label { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OCA SSE API Tester</h1>
+        
+        <div class="config">
+            <h3>Configuration</h3>
+            <label>OCA URL:</label>
+            <input type="text" id="ocaUrl" placeholder="https://your-oca-url/api/endpoint">
+            
+            <label>Client Name:</label>
+            <input type="text" id="clientName" placeholder="your-client-name">
+            
+            <label>Bearer Token:</label>
+            <input type="text" id="bearerToken" placeholder="your-bearer-token">
+        </div>
+        
+        <div>
+            <label>Prompt:</label>
+            <textarea id="promptInput" placeholder="Enter your prompt here...">Give me java method to calculate average of two integers</textarea>
+            <button onclick="sendRequest()">Send Request</button>
+            <button onclick="clearOutput()">Clear Output</button>
+        </div>
+        
+        <div>
+            <h3>Streaming Response:</h3>
+            <div id="output" class="output"></div>
+        </div>
+        
+        <div>
+            <h3>Complete Response:</h3>
+            <div id="completeResponse" class="output"></div>
+        </div>
+    </div>
+
+    <script>
+        let completeResponse = '';
+        
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+            document.getElementById('completeResponse').innerHTML = '';
+            completeResponse = '';
+        }
+        
+        async function sendRequest() {
+            const url = document.getElementById('ocaUrl').value;
+            const clientName = document.getElementById('clientName').value;
+            const token = document.getElementById('bearerToken').value;
+            const prompt = document.getElementById('promptInput').value;
+            
+            if (!url || !clientName || !token || !prompt) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            clearOutput();
+            
+            const outputDiv = document.getElementById('output');
+            const completeDiv = document.getElementById('completeResponse');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream',
+                        'client': clientName,
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        model: {
+                            modelId: "OPENAI_GPT_4_1"
+                        },
+                        contexts: [{
+                            kind: "USER",
+                            messages: [{
+                                role: "user",
+                                content: prompt
+                            }]
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const eventData = line.replace('data: ', '');
+                            outputDiv.innerHTML += `<div><strong>Event:</strong> ${eventData}</div>`;
+                            
+                            try {
+                                const parsed = JSON.parse(eventData);
+                                if (parsed.generated_text) {
+                                    completeResponse = parsed.generated_text;
+                                    completeDiv.innerHTML = `<pre>${completeResponse}</pre>`;
+                                }
+                            } catch (e) {
+                                console.log('Could not parse JSON:', eventData);
+                            }
+                        }
+                    }
+                    
+                    // Auto-scroll to bottom
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                }
+                
+            } catch (error) {
+                outputDiv.innerHTML += `<div style="color: red;"><strong>Error:</strong> ${error.message}</div>`;
+            }
+        }
+        
+        // Pre-fill with example values (update these with your actual values)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Uncomment and update these with your actual values
+            // document.getElementById('ocaUrl').value = 'https://your-oca-url';
+            // document.getElementById('clientName').value = 'your-client-name';
+            // document.getElementById('bearerToken').value = 'your-token';
+        });
+    </script>
+</body>
+</html>
