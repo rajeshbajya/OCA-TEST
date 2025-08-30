@@ -22,14 +22,10 @@
         
         <div class="config">
             <h3>Configuration</h3>
-            <label>OCA URL:</label>
-            <input type="text" id="ocaUrl" placeholder="https://your-oca-url/api/endpoint">
+            <label>Flask App URL:</label>
+            <input type="text" id="flaskUrl" placeholder="https://your-flask-url/ask" value="https://phoenix66264.ad2.fusionappsdphx1.oraclevcn.com:9443/oca/ask">
             
-            <label>Client Name:</label>
-            <input type="text" id="clientName" placeholder="your-client-name">
-            
-            <label>Bearer Token:</label>
-            <input type="text" id="bearerToken" placeholder="your-bearer-token">
+            <p><strong>Note:</strong> Using deployed Flask app as proxy to avoid CORS issues</p>
         </div>
         
         <div>
@@ -60,12 +56,10 @@
         }
         
         async function sendRequest() {
-            const url = document.getElementById('ocaUrl').value;
-            const clientName = document.getElementById('clientName').value;
-            const token = document.getElementById('bearerToken').value;
+            const flaskUrl = document.getElementById('flaskUrl').value;
             const prompt = document.getElementById('promptInput').value;
             
-            if (!url || !clientName || !token || !prompt) {
+            if (!flaskUrl || !prompt) {
                 alert('Please fill in all fields');
                 return;
             }
@@ -76,25 +70,13 @@
             const completeDiv = document.getElementById('completeResponse');
             
             try {
-                const response = await fetch(url, {
+                const response = await fetch(flaskUrl, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'text/event-stream',
-                        'client': clientName,
-                        'Authorization': `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: {
-                            modelId: "OPENAI_GPT_4_1"
-                        },
-                        contexts: [{
-                            kind: "USER",
-                            messages: [{
-                                role: "user",
-                                content: prompt
-                            }]
-                        }]
+                        prompt: prompt
                     })
                 });
                 
@@ -102,39 +84,15 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-                    
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const eventData = line.replace('data: ', '');
-                            outputDiv.innerHTML += `<div><strong>Event:</strong> ${eventData}</div>`;
-                            
-                            try {
-                                const parsed = JSON.parse(eventData);
-                                if (parsed.generated_text) {
-                                    completeResponse = parsed.generated_text;
-                                    completeDiv.innerHTML = `<pre>${completeResponse}</pre>`;
-                                }
-                            } catch (e) {
-                                console.log('Could not parse JSON:', eventData);
-                            }
-                        }
-                    }
-                    
-                    // Auto-scroll to bottom
-                    outputDiv.scrollTop = outputDiv.scrollHeight;
-                }
+                const result = await response.text();
+                outputDiv.innerHTML += `<div><strong>Response:</strong></div>`;
+                completeDiv.innerHTML = `<pre>${result}</pre>`;
                 
             } catch (error) {
                 outputDiv.innerHTML += `<div style="color: red;"><strong>Error:</strong> ${error.message}</div>`;
+                if (error.message.includes('fetch')) {
+                    outputDiv.innerHTML += `<div style="color: orange;"><strong>Tip:</strong> Make sure your Flask app is running and accessible from this domain. You may need to add CORS headers to your Flask app.</div>`;
+                }
             }
         }
         
