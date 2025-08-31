@@ -21,7 +21,7 @@
         }
 
         /* Theme Variables */
-        .theme-white {
+        .theme-default {
             background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             --primary: #3b82f6;
             --secondary: #1d4ed8;
@@ -35,7 +35,7 @@
             --success: #10b981;
         }
 
-        .theme-default {
+        .theme-purple {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --primary: #667eea;
             --secondary: #764ba2;
@@ -180,10 +180,24 @@
         }
 
         .cell.selected {
-            background: var(--selected);
-            color: white;
+            background: #ff4757 !important;
+            color: white !important;
             transform: scale(1.05);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+            border: 2px solid white;
+        }
+
+        .cell.highlight {
+            background: #ffa502 !important;
+            color: white !important;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(255, 165, 2, 0.3);
+        }
+
+        .cell.user-filled {
+            background: var(--cell-bg);
+            color: var(--number-color);
+            font-weight: 700;
         }
 
         .cell.error {
@@ -208,13 +222,9 @@
         }
 
         .cell.prefilled {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            font-weight: 900;
-        }
-
-        .cell.highlight {
-            background: rgba(255, 255, 255, 0.5);
+            background: var(--cell-bg);
+            color: var(--number-color);
+            font-weight: 700;
         }
 
         @keyframes shake {
@@ -294,13 +304,6 @@
             color: white;
         }
 
-        .top-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
         .theme-selector {
             display: flex;
             justify-content: space-between;
@@ -318,8 +321,8 @@
             overflow: hidden;
         }
 
-        .theme-btn.white { background: linear-gradient(45deg, #f8fafc, #e2e8f0); border: 2px solid #cbd5e0; }
-        .theme-btn.default { background: linear-gradient(45deg, #667eea, #764ba2); }
+        .theme-btn.default { background: linear-gradient(45deg, #f8fafc, #e2e8f0); border: 2px solid #cbd5e0; }
+        .theme-btn.purple { background: linear-gradient(45deg, #667eea, #764ba2); }
         .theme-btn.dark { background: linear-gradient(45deg, #2d3748, #1a202c); }
         .theme-btn.ocean { background: linear-gradient(45deg, #0077be, #004d7a); }
 
@@ -449,7 +452,7 @@
         }
     </style>
 </head>
-    <body class="theme-white">
+    <body class="theme-dark">
     <div class="container">
         <div class="header">
             <h1 class="title">Sudoku Pro</h1>
@@ -457,9 +460,9 @@
 
         <div class="top-controls">
             <div class="theme-selector">
-                <button class="theme-btn white active" data-theme="white"></button>
                 <button class="theme-btn default" data-theme="default"></button>
-                <button class="theme-btn dark" data-theme="dark"></button>
+                <button class="theme-btn purple" data-theme="purple"></button>
+                <button class="theme-btn dark active" data-theme="dark"></button>
                 <button class="theme-btn ocean" data-theme="ocean"></button>
             </div>
             
@@ -549,6 +552,13 @@
                     cell.addEventListener('click', () => this.selectCell(i));
                     boardElement.appendChild(cell);
                 }
+
+                // Add click listener to board container to detect outside clicks
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.sudoku-board') && !e.target.closest('.number-pad')) {
+                        this.clearSelection();
+                    }
+                });
             }
 
             generatePuzzle() {
@@ -659,6 +669,11 @@
                 if (this.initialBoard[row][col] !== 0) return;
                 
                 this.selectedCell = { row, col, index };
+                this.updateDisplay();
+            }
+
+            clearSelection() {
+                this.selectedCell = null;
                 this.updateDisplay();
             }
 
@@ -800,6 +815,10 @@
                     if (this.initialBoard[row][col] !== 0) {
                         cell.classList.add('prefilled');
                     }
+                    // Add user-filled class for player-entered numbers
+                    else if (value !== 0) {
+                        cell.classList.add('user-filled');
+                    }
                     
                     // Add wrong class for incorrect values
                     if (this.wrongCells.has(`${row}-${col}`)) {
@@ -811,7 +830,7 @@
                         cell.classList.add('selected');
                     }
                     
-                    // Highlight same numbers
+                    // Highlight same numbers (more visible now)
                     if (this.selectedCell && value !== 0 && value === this.board[this.selectedCell.row][this.selectedCell.col]) {
                         cell.classList.add('highlight');
                     }
