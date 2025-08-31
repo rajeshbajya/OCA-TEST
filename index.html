@@ -511,7 +511,7 @@
         <div class="game-over-content">
             <h2 id="gameOverTitle">Game Over!</h2>
             <p id="gameOverMessage">You've made too many mistakes.</p>
-            <button class="restart-btn" onclick="startNewGame()">Play Again</button>
+            <button class="restart-btn" onclick="restartGame()">Play Again</button>
         </div>
     </div>
 
@@ -997,6 +997,28 @@
                 game.stopTimer();
             }
             game = new SudokuGame();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').classList.remove('show');
+            if (game) {
+                game.stopTimer();
+                // Reset all game state
+                game.mistakes = 0;
+                game.gameTime = 0;
+                game.moveHistory = [];
+                game.selectedCell = null;
+                game.wrongCells.clear();
+                
+                // Reset mistake dots
+                for (let i = 1; i <= 3; i++) {
+                    document.getElementById(`mistake${i}`).classList.remove('used');
+                }
+                
+                // Generate new puzzle with current difficulty
+                game.generatePuzzle();
+                game.startTimer();
+            }
         }
 
         // Initialize game when page loads
