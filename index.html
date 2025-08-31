@@ -21,6 +21,20 @@
         }
 
         /* Theme Variables */
+        .theme-white {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --primary: #3b82f6;
+            --secondary: #1d4ed8;
+            --board-bg: rgba(255, 255, 255, 0.98);
+            --cell-bg: #ffffff;
+            --cell-border: #e2e8f0;
+            --text-color: #1f2937;
+            --number-color: #374151;
+            --selected: #3b82f6;
+            --error: #ef4444;
+            --success: #10b981;
+        }
+
         .theme-default {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             --primary: #667eea;
@@ -61,20 +75,6 @@
             --selected: #0077be;
             --error: #d32f2f;
             --success: #2e7d32;
-        }
-
-        .theme-sunset {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%);
-            --primary: #ff6b6b;
-            --secondary: #ffa726;
-            --board-bg: rgba(255, 255, 255, 0.9);
-            --cell-bg: #fff3e0;
-            --cell-border: #ffcc80;
-            --text-color: #d84315;
-            --number-color: #ef6c00;
-            --selected: #ff6b6b;
-            --error: #c62828;
-            --success: #388e3c;
         }
 
         .container {
@@ -192,6 +192,21 @@
             color: white;
         }
 
+        .cell.wrong {
+            background: var(--error) !important;
+            color: white !important;
+            position: relative;
+        }
+
+        .cell.wrong::after {
+            content: '✗';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
         .cell.prefilled {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
@@ -303,10 +318,10 @@
             overflow: hidden;
         }
 
+        .theme-btn.white { background: linear-gradient(45deg, #f8fafc, #e2e8f0); border: 2px solid #cbd5e0; }
         .theme-btn.default { background: linear-gradient(45deg, #667eea, #764ba2); }
         .theme-btn.dark { background: linear-gradient(45deg, #2d3748, #1a202c); }
         .theme-btn.ocean { background: linear-gradient(45deg, #0077be, #004d7a); }
-        .theme-btn.sunset { background: linear-gradient(45deg, #ff6b6b, #ffa726); }
 
         .theme-btn.active::after {
             content: '✓';
@@ -434,7 +449,7 @@
         }
     </style>
 </head>
-    <body class="theme-dark">
+    <body class="theme-white">
     <div class="container">
         <div class="header">
             <h1 class="title">Sudoku Pro</h1>
@@ -442,10 +457,10 @@
 
         <div class="top-controls">
             <div class="theme-selector">
+                <button class="theme-btn white active" data-theme="white"></button>
                 <button class="theme-btn default" data-theme="default"></button>
-                <button class="theme-btn dark active" data-theme="dark"></button>
+                <button class="theme-btn dark" data-theme="dark"></button>
                 <button class="theme-btn ocean" data-theme="ocean"></button>
-                <button class="theme-btn sunset" data-theme="sunset"></button>
             </div>
             
             <div class="difficulty-selector">
@@ -506,6 +521,7 @@
                 this.board = Array(9).fill().map(() => Array(9).fill(0));
                 this.solution = Array(9).fill().map(() => Array(9).fill(0));
                 this.initialBoard = Array(9).fill().map(() => Array(9).fill(0));
+                this.wrongCells = new Set(); // Track cells with wrong values
                 this.selectedCell = null;
                 this.mistakes = 0;
                 this.maxMistakes = 3;
@@ -663,8 +679,13 @@
                 
                 // Check if move is correct
                 if (num !== this.solution[row][col]) {
+                    // Mark cell as wrong
+                    this.wrongCells.add(`${row}-${col}`);
                     this.handleMistake(row, col);
                 } else {
+                    // Remove from wrong cells if it was previously wrong
+                    this.wrongCells.delete(`${row}-${col}`);
+                    
                     // Check if game is complete
                     if (this.isGameComplete()) {
                         this.handleGameWin();
@@ -688,6 +709,8 @@
                     });
                     
                     this.board[row][col] = 0;
+                    // Remove from wrong cells when erased
+                    this.wrongCells.delete(`${row}-${col}`);
                     this.updateDisplay();
                 }
             }
@@ -697,6 +720,20 @@
                 
                 const lastMove = this.moveHistory.pop();
                 this.board[lastMove.row][lastMove.col] = lastMove.oldValue;
+                
+                // Update wrong cells tracking
+                const cellKey = `${lastMove.row}-${lastMove.col}`;
+                if (lastMove.oldValue === 0) {
+                    // If we're undoing to empty, remove from wrong cells
+                    this.wrongCells.delete(cellKey);
+                } else if (lastMove.oldValue !== this.solution[lastMove.row][lastMove.col]) {
+                    // If we're undoing to a wrong value, add to wrong cells
+                    this.wrongCells.add(cellKey);
+                } else {
+                    // If we're undoing to a correct value, remove from wrong cells
+                    this.wrongCells.delete(cellKey);
+                }
+                
                 this.updateDisplay();
             }
 
@@ -762,6 +799,11 @@
                     // Add prefilled class for initial numbers
                     if (this.initialBoard[row][col] !== 0) {
                         cell.classList.add('prefilled');
+                    }
+                    
+                    // Add wrong class for incorrect values
+                    if (this.wrongCells.has(`${row}-${col}`)) {
+                        cell.classList.add('wrong');
                     }
                     
                     // Highlight selected cell
@@ -871,17 +913,20 @@
                 });
                 document.querySelector(`[data-difficulty="${difficulty}"]`).classList.add('active');
                 
-                // Generate new puzzle with selected difficulty
+                // Reset game state
                 this.mistakes = 0;
                 this.gameTime = 0;
                 this.moveHistory = [];
                 this.selectedCell = null;
+                this.wrongCells.clear(); // Clear wrong cells tracking
                 
                 // Reset mistake dots
                 for (let i = 1; i <= 3; i++) {
                     document.getElementById(`mistake${i}`).classList.remove('used');
                 }
                 
+                // Stop current timer and generate new puzzle
+                this.stopTimer();
                 this.generatePuzzle();
                 this.startTimer();
             }
